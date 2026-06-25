@@ -43,10 +43,11 @@ exception Error of error * Location.t
 (* The table of keywords *)
 
 let all_keywords =
-  let v5_3 = Some (5,3) in
   let v1_0 = Some (1,0) in
   let v1_6 = Some (1,6) in
   let v4_2 = Some (4,2) in
+  let v5_3 = Some (5,3) in
+  let v5_5 = Some (5,5) in
   let always = None in
   [
     "and", AND, always;
@@ -81,6 +82,7 @@ let all_keywords =
     "mutable", MUTABLE, always;
     "new", NEW, v1_0;
     "nonrec", NONREC, v4_2;
+    "not", NOT, v5_5;
     "object", OBJECT, v1_0;
     "of", OF, always;
     "open", OPEN, always;

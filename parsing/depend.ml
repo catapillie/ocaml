@@ -188,6 +188,7 @@ let rec add_pattern bv pat =
       List.iter (fun (lbl, p) -> add bv lbl; add_pattern bv p) pl
   | Ppat_array pl -> List.iter (add_pattern bv) pl
   | Ppat_or(p1, p2) -> add_pattern bv p1; add_pattern bv p2
+  | Ppat_not(p) -> add_pattern bv p
   | Ppat_constraint(p, ty) -> add_pattern bv p; add_type bv ty
   | Ppat_variant(_, op) -> add_opt add_pattern bv op
   | Ppat_type li -> add bv li

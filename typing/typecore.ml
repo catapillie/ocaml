@@ -2005,6 +2005,8 @@ let rec has_literal_pattern p = match p.ppat_desc with
   | Ppat_effect (p, q)
   | Ppat_or (p, q) ->
      has_literal_pattern p || has_literal_pattern q
+  | Ppat_not p ->
+     has_literal_pattern p
 
 (** The typedtree has two distinct syntactic categories for patterns,
    "value" patterns, matching on values, and "computation" patterns
@@ -2471,6 +2473,7 @@ and type_pat_aux
            pat_type = instance expected_ty;
            pat_attributes = sp.ppat_attributes;
            pat_env = !!penv }
+  | Ppat_not _ -> failwith "type_pat_aux: Ppat_not"
   | Ppat_lazy sp1 ->
       let nv = solve_Ppat_lazy loc penv expected_ty in
       let p1 = type_pat tps Value sp1 nv in
@@ -4109,6 +4112,7 @@ let shallow_iter_ppat f p =
   | Ppat_effect(p1, p2) -> f p1; f p2
   | Ppat_variant (_, arg) -> Option.iter f arg
   | Ppat_tuple (lst, _) -> List.iter (fun (_, p) -> f p) lst
+  | Ppat_not p
   | Ppat_construct (_, Some (_, p))
   | Ppat_exception p | Ppat_alias (p,_)
   | Ppat_open (_,p)
@@ -4156,6 +4160,7 @@ let rec is_var_pat p =
   | Ppat_record _
   | Ppat_array _
   | Ppat_or _
+  | Ppat_not _
   | Ppat_type _
   | Ppat_lazy _
   | Ppat_unpack _

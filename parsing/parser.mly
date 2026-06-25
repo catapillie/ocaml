@@ -836,6 +836,7 @@ let mk_directive ~loc name arg =
 %token MUTABLE                "mutable"
 %token NEW                    "new"
 %token NONREC                 "nonrec"
+%token NOT                    "not"
 %token OBJECT                 "object"
 %token OF                     "of"
 %token OPEN                   "open"
@@ -951,7 +952,7 @@ The precedences must be listed from low to high.
 /* Finally, the first tokens of simple_expr are above everything else. */
 %nonassoc BACKQUOTE BANG BEGIN CHAR FALSE FLOAT INT OBJECT
           LBRACE LBRACELESS LBRACKET LBRACKETBAR LIDENT LPAREN
-          NEW PREFIXOP STRING TRUE UIDENT
+          NEW NOT PREFIXOP STRING TRUE UIDENT
           LBRACKETPERCENT QUOTED_STRING_EXPR
           METAOCAML_BRACKET_OPEN METAOCAML_ESCAPE
 
@@ -2741,7 +2742,7 @@ let_binding_body_no_punning:
         Pvc_constraint { locally_abstract_univars=$4; typ = $6}
       in
       ($1, $8, Some constraint') }
-  | pattern_no_exn EQUAL seq_expr
+  | pattern_no_exn_no_not EQUAL seq_expr
       { ($1, $3, None) }
   | simple_pattern_not_ident COLON core_type EQUAL seq_expr
       { ($1, $5, Some(Pvc_constraint { locally_abstract_univars=[]; typ=$3 })) }
@@ -2795,7 +2796,7 @@ letop_binding_body:
   | pat = simple_pattern COLON typ = core_type EQUAL exp = seq_expr
       { let loc = ($startpos(pat), $endpos(typ)) in
         (ghpat ~loc (Ppat_constraint(pat, typ)), exp) }
-  | pat = pattern_no_exn EQUAL exp = seq_expr
+  | pat = pattern_no_exn_no_not EQUAL exp = seq_expr
       { (pat, exp) }
 ;
 letop_bindings:
@@ -3026,10 +3027,12 @@ pattern:
       { mkpat_attrs ~loc:$sloc (Ppat_exception $3) $2}
   | EFFECT pattern_gen COMMA simple_pattern
       { mkpat ~loc:$sloc (Ppat_effect($2,$4)) }
+  | NOT pattern
+      { mkpat ~loc:$sloc (Ppat_not $2)}
 ;
 
-pattern_no_exn:
-    pattern_(pattern_no_exn)
+pattern_no_exn_no_not:
+    pattern_(pattern_no_exn_no_not)
       { $1 }
 ;
 
@@ -4078,6 +4081,7 @@ val_extra_ident:
 ;
 val_ident:
     LIDENT                    { $1 }
+  | NOT                       { "not" }
   | val_extra_ident           { $1 }
 ;
 operator:
@@ -4342,6 +4346,7 @@ single_attr_id:
   | MUTABLE { "mutable" }
   | NEW { "new" }
   | NONREC { "nonrec" }
+  | NOT { "not" }
   | OBJECT { "object" }
   | OF { "of" }
   | OPEN { "open" }

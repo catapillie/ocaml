@@ -592,6 +592,7 @@ module P = struct
                (List.map (map_tuple (map_loc_lid sub) (sub.pat sub)) lpl) cf
     | Ppat_array pl -> array ~loc ~attrs (List.map (sub.pat sub) pl)
     | Ppat_or (p1, p2) -> or_ ~loc ~attrs (sub.pat sub p1) (sub.pat sub p2)
+    | Ppat_not p -> not_ ~loc ~attrs (sub.pat sub p)
     | Ppat_constraint (p, t) ->
         constraint_ ~loc ~attrs (sub.pat sub p) (sub.typ sub t)
     | Ppat_type s -> type_ ~loc ~attrs (map_loc_lid sub s)

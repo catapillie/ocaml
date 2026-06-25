@@ -40,6 +40,7 @@ type token =
   | OPEN
   | OF
   | OBJECT
+  | NOT
   | NONREC
   | NEW
   | MUTABLE

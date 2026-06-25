@@ -523,6 +523,7 @@ module P = struct
         List.iter (iter_tuple (iter_loc_lid sub) (sub.pat sub)) lpl
     | Ppat_array pl -> List.iter (sub.pat sub) pl
     | Ppat_or (p1, p2) -> sub.pat sub p1; sub.pat sub p2
+    | Ppat_not p -> sub.pat sub p
     | Ppat_constraint (p, t) ->
         sub.pat sub p; sub.typ sub t
     | Ppat_type s -> iter_loc_lid sub s
