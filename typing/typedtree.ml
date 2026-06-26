@@ -84,6 +84,7 @@ and 'k pattern_desc =
   | Tpat_or :
       'k general_pattern * 'k general_pattern * row_desc option ->
       'k pattern_desc
+  | Tpat_not : value general_pattern -> value pattern_desc
 
 and tpat_value_argument = value general_pattern
 
@@ -733,6 +734,7 @@ let rec classify_pattern_desc : type k . k pattern_desc -> k pattern_category =
      | Value, Value -> Value
      | Computation, Computation -> Computation
      end
+  | Tpat_not _ -> Value
 
 and classify_pattern
   : type k . k general_pattern -> k pattern_category
@@ -758,6 +760,7 @@ let shallow_iter_pattern_desc
   | Tpat_value p -> f.f p
   | Tpat_exception p -> f.f p
   | Tpat_or(p1, p2, _) -> f.f p1; f.f p2
+  | Tpat_not p -> f.f p
 
 type pattern_transformation =
   { f : 'k . 'k general_pattern -> 'k general_pattern }
@@ -785,6 +788,7 @@ let shallow_map_pattern_desc
   | Tpat_exception p -> Tpat_exception (f.f p)
   | Tpat_or (p1,p2,path) ->
       Tpat_or (f.f p1, f.f p2, path)
+  | Tpat_not p -> Tpat_not (f.f p)
 
 let rec iter_general_pattern
   : type k . pattern_action -> k general_pattern -> unit

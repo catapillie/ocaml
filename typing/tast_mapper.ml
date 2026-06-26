@@ -332,6 +332,8 @@ let pat
        Tpat_exception (sub.pat sub p)
     | Tpat_or (p1, p2, rd) ->
         Tpat_or (sub.pat sub p1, sub.pat sub p2, rd)
+    | Tpat_not p ->
+        Tpat_not (sub.pat sub p)
   in
   let pat_attributes = sub.attributes sub x.pat_attributes in
   {x with pat_loc; pat_extra; pat_desc; pat_env; pat_attributes}

@@ -290,6 +290,7 @@ let pat
   | Tpat_or (p1, p2, _) ->
       sub.pat sub p1;
       sub.pat sub p2
+  | Tpat_not p -> sub.pat sub p
 
 let extra sub = function
   | Texp_constraint cty -> sub.typ sub cty

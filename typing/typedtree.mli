@@ -156,6 +156,8 @@ and 'k pattern_desc =
             [row_desc] = [Some _] when translating [Ppat_type _],
                          [None] otherwise.
          *)
+  | Tpat_not : value general_pattern -> value pattern_desc
+    (** not P *)
 
 and tpat_value_argument = private value general_pattern
 

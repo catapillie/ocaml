@@ -35,6 +35,11 @@ let rec omegas i =
 
 let omega_list l = List.map (fun _ -> omega) l
 
+let negate p = { p with
+  pat_desc = Tpat_not p;
+  pat_loc = Location.none;
+  pat_attributes = [] }
+
 module Non_empty_row = struct
   type 'a t = 'a * Typedtree.pattern list
 
@@ -72,6 +77,7 @@ module Half_simple = struct
   type view = [
     | Simple.view
     | `Or of pattern * pattern * row_desc option
+    | `Not of pattern
   ]
 
   type pattern = view pattern_data
@@ -105,6 +111,7 @@ module General = struct
     | Tpat_array (am,ps) -> `Array (am, ps)
     | Tpat_or (p, q, row_desc) -> `Or (p, q, row_desc)
     | Tpat_lazy p -> `Lazy p
+    | Tpat_not p -> `Not p
 
   let view p : pattern =
     { p with pat_desc = view_desc p.pat_desc }
@@ -124,6 +131,7 @@ module General = struct
     | `Array (am, ps) -> Tpat_array (am, ps)
     | `Or (p, q, row_desc) -> Tpat_or (p, q, row_desc)
     | `Lazy p -> Tpat_lazy p
+    | `Not p -> Tpat_not p
 
   let erase p : Typedtree.pattern =
     { p with pat_desc = erase_desc p.pat_desc }

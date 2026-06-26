@@ -297,6 +297,9 @@ and pattern : type k . _ -> _ -> k general_pattern -> unit = fun i ppf x ->
       line i ppf "Tpat_or\n";
       pattern i ppf p1;
       pattern i ppf p2;
+  | Tpat_not p ->
+      line i ppf "Tpat_not\n";
+      pattern i ppf p
 
 and labeled_pattern
   : type k . _ -> _ -> string option * k general_pattern -> unit =

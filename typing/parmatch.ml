@@ -376,6 +376,38 @@ let get_constructor_type_path ty tenv =
   | Tconstr (path,_,_) -> path
   | _ -> assert false
 
+(**********************************************)
+(* Utilities for building complete signatures *)
+(**********************************************)
+
+let get_variant_constructors env ty =
+  match Ctype.extract_concrete_typedecl env ty with
+  | Typedecl (_, path, {type_kind = Type_variant _}) ->
+      begin match Env.find_type_descrs path env with
+      | Type_variant (cstrs,_) -> cstrs
+      | _ -> fatal_error "Parmatch.get_variant_constructors"
+      end
+  | _ -> fatal_error "Parmatch.get_variant_constructors"
+
+module ConstructorSet = Set.Make(struct
+  type t = constructor_description
+  let compare c1 c2 = String.compare c1.cstr_name c2.cstr_name
+end)
+
+(* Sends back a pattern that complements the given constructors used_constrs *)
+let complete_constrs constr used_constrs =
+  let c = constr.pat_desc in
+  let constrs = get_variant_constructors constr.pat_env c.cstr_res in
+  let used_constrs = ConstructorSet.of_list used_constrs in
+  let others =
+    List.filter
+      (fun cnstr -> not (ConstructorSet.mem cnstr used_constrs))
+      constrs in
+  (* Split constructors to put constant ones first *)
+  let const, nonconst =
+    List.partition (fun cnstr -> cnstr.cstr_arity = 0) others in
+  const @ nonconst
+
 (****************************)
 (* Utilities for matching   *)
 (****************************)
@@ -553,7 +585,7 @@ let set_args q r = match q with
     rest
 | {pat_desc=Tpat_constant _|Tpat_any} ->
     q::r (* case any is used in matching.ml *)
-| {pat_desc = (Tpat_var _ | Tpat_alias _ | Tpat_or _); _} ->
+| {pat_desc = (Tpat_var _ | Tpat_alias _ | Tpat_or _ | Tpat_not _); _} ->
     fatal_error "Parmatch.set_args"
 
 (* Given a matrix of non-empty rows
@@ -581,6 +613,38 @@ let simplify_head_pat ~add_column p ps k =
   let rec simplify_head_pat p ps k =
     match Patterns.General.(view p |> strip_vars).pat_desc with
     | `Or (p1,p2,_) -> simplify_head_pat p1 ps (simplify_head_pat p2 ps k)
+
+    | `Not r -> begin match Patterns.General.(view r |> strip_vars).pat_desc
+      with
+      | `Not rr -> simplify_head_pat rr ps k
+      | `Or (_, _, _) -> fatal_error "TODO: 'not'-pattern in front of 'or'-pattern"
+      | #Patterns.Simple.view as view -> 
+        let hd, args = (Patterns.Head.deconstruct { p with pat_desc = view })
+        in let excluded_heads = match hd.pat_desc with
+          | Any -> []
+          | Construct c ->
+            complete_constrs { p with pat_desc = c } [c]
+            |> List.map (fun c ->
+              {hd with pat_desc = Patterns.Head.Construct c})
+          | Constant _ -> fatal_error "TODO: 'not'-pattern in front of constant"
+          | Tuple _ -> []
+          | Record _ -> []
+          | Variant _ -> fatal_error "TODO: 'not'-pattern in front of variant"
+          | Array _ -> fatal_error "TODO: 'not'-pattern in front of array"
+          | Lazy -> []
+        in
+        let negated_args = List.init (Patterns.Head.arity hd)
+          (fun i -> List.mapi (fun j arg ->
+            if i = j then Patterns.negate arg else omega) args) in
+        let k = List.fold_left (fun k narg ->
+          add_column (hd, narg) ps k
+        ) k negated_args in
+        let k = List.fold_left (fun k exhd ->
+          add_column (exhd, omegas (Patterns.Head.arity exhd)) ps k
+        ) k excluded_heads in
+        k
+      end
+
     | #Patterns.Simple.view as view ->
        add_column (Patterns.Head.deconstruct { p with pat_desc = view }) ps k
   in simplify_head_pat p ps k
@@ -866,34 +930,6 @@ let pats_of_type env ty =
   | Typedecl (_, _, {type_kind = Type_abstract _ | Type_open | Type_external _})
   | May_have_typedecl -> [omega]
 
-let get_variant_constructors env ty =
-  match Ctype.extract_concrete_typedecl env ty with
-  | Typedecl (_, path, {type_kind = Type_variant _}) ->
-      begin match Env.find_type_descrs path env with
-      | Type_variant (cstrs,_) -> cstrs
-      | _ -> fatal_error "Parmatch.get_variant_constructors"
-      end
-  | _ -> fatal_error "Parmatch.get_variant_constructors"
-
-module ConstructorSet = Set.Make(struct
-  type t = constructor_description
-  let compare c1 c2 = String.compare c1.cstr_name c2.cstr_name
-end)
-
-(* Sends back a pattern that complements the given constructors used_constrs *)
-let complete_constrs constr used_constrs =
-  let c = constr.pat_desc in
-  let constrs = get_variant_constructors constr.pat_env c.cstr_res in
-  let used_constrs = ConstructorSet.of_list used_constrs in
-  let others =
-    List.filter
-      (fun cnstr -> not (ConstructorSet.mem cnstr used_constrs))
-      constrs in
-  (* Split constructors to put constant ones first *)
-  let const, nonconst =
-    List.partition (fun cnstr -> cnstr.cstr_arity = 0) others in
-  const @ nonconst
-
 let build_other_constrs env p =
   let open Patterns.Head in
   match p.pat_desc with
@@ -1069,6 +1105,7 @@ let rec has_instance p = match p.pat_desc with
   | Tpat_any | Tpat_var _ | Tpat_constant _ | Tpat_variant (_,None,_) -> true
   | Tpat_alias (p,_,_,_,_) | Tpat_variant (_,Some p,_) -> has_instance p
   | Tpat_or (p1,p2,_) -> has_instance p1 || has_instance p2
+  | Tpat_not _ -> true (* TODO: account for impossible patterns *)
   | Tpat_construct (_,_,ps,_) | Tpat_array (_, ps) ->
       has_instances ps
   | Tpat_tuple labeled_ps -> has_instances (List.map snd labeled_ps)
@@ -1112,6 +1149,8 @@ let rec satisfiable pss qs = match pss with
        match Patterns.General.(view q |> strip_vars).pat_desc with
        | `Or(q1,q2,_) ->
           satisfiable pss (q1::qs) || satisfiable pss (q2::qs)
+       | `Not r ->
+          satisfiable (pss @ [r :: qs]) (omega :: qs)
        | `Any ->
           let pss = simplify_first_col pss in
           if not (all_coherent (first_column pss)) then
@@ -1164,6 +1203,7 @@ let rec list_satisfying_vectors pss qs =
          | `Or(q1,q2,_) ->
             list_satisfying_vectors pss (q1::qs) @
             list_satisfying_vectors pss (q2::qs)
+         | `Not _ -> failwith "list_satisfying_vectors: `Not"
          | `Any ->
             let pss = simplify_first_col pss in
             if not (all_coherent (first_column pss)) then
@@ -1239,6 +1279,7 @@ let rec do_match pss qs = match qs with
 | q::qs -> match Patterns.General.(view q |> strip_vars).pat_desc with
   | `Or (q1,q2,_) ->
       do_match pss (q1::qs) || do_match pss (q2::qs)
+  | `Not _ -> failwith "do_match: `Not"
   | `Any ->
       let rec remove_first_column = function
         | (_::ps)::rem -> ps::remove_first_column rem
@@ -1644,6 +1685,10 @@ let rec every_satisfiables pss qs = match qs.active with
         else
           (* this is a real or-pattern *)
           every_satisfiables (push_or_column pss) (push_or qs)
+    | `Not r -> 
+          let negative_row = {qs with active = r::rem} in
+          let positive_row = {qs with active = omega::rem} in
+          every_satisfiables (pss @ [negative_row]) (positive_row)
     | `Variant (l,_,r) when is_absent l r -> (* Ah Jacques... *)
         Unused
     | #Patterns.Simple.view as view ->
@@ -1978,6 +2023,7 @@ let rec collect_paths_from_pat r p = match p.pat_desc with
 | Tpat_lazy p
     ->
     collect_paths_from_pat r p
+| Tpat_not p -> collect_paths_from_pat r p
 
 
 (*
@@ -2114,6 +2160,7 @@ let inactive ~partial pat =
               ldps
         | Tpat_or (p,q,_) ->
             loop p && loop q
+        | Tpat_not p -> loop p
       in
       loop pat
   end
@@ -2232,6 +2279,7 @@ let simplify_head_amb_pat head_bound_variables varsets ~add_column p ps k =
     | `Or (p1,p2,_) ->
       simpl head_bound_variables varsets p1 ps
         (simpl head_bound_variables varsets p2 ps k)
+    | `Not _ -> failwith "simplify_head_amb_pat: `Not"
     | #Patterns.Simple.view as view ->
       add_column (Patterns.Head.deconstruct { p with pat_desc = view })
         { row = ps; varsets = head_bound_variables :: varsets; } k

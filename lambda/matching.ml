@@ -254,7 +254,7 @@ end = struct
           | other_view -> continue orpat other_view
         )
       | ( `Constant _ | `Tuple _ | `Construct _ | `Variant _ | `Array _
-        | `Lazy _ ) as view ->
+        | `Lazy _ | `Not _ ) as view ->
           stop p view
     in
     aux cl
@@ -334,6 +334,7 @@ end = struct
       match p.pat_desc with
       | `Or (p1, p2, _) ->
           split_explode p1 aliases (split_explode p2 aliases rem)
+      | `Not _ -> failwith "explode_or_pat: `Not"
       | `Alias (p, id, _, _, _) -> split_explode p (id :: aliases) rem
       | `Var (id, str, uid) ->
           explode
@@ -597,6 +598,7 @@ end = struct
           match p.pat_desc with
           | `Or (p1, p2, _) ->
               filter_rec ((left, p1, right) :: (left, p2, right) :: rem)
+          | `Not _ -> failwith "specialize.filter_rec: `Not"
           | `Alias (p, _, _, _, _) -> filter_rec ((left, p, right) :: rem)
           | `Var _ -> filter_rec ((left, Patterns.omega, right) :: rem)
           | #Simple.view as view -> (
@@ -742,6 +744,7 @@ end = struct
           | `Alias (p, _, _, _, _) -> filter_rec ((p, ps) :: rem)
           | `Var _ -> filter_rec ((Patterns.omega, ps) :: rem)
           | `Or (p1, p2, _) -> filter_rec_or p1 p2 ps rem
+          | `Not _ -> failwith "specialize_matrix: `Not"
           | #Simple.view as view -> (
               let p = { p with pat_desc = view } in
               match matcher p ps with
@@ -1846,6 +1849,7 @@ and precompile_or (cls : Simple.clause list) ors args def k =
             in
             let rem_cases, rem_handlers = do_cases rem in
             (new_cases @ rem_cases, handler :: rem_handlers)
+        | `Not _ -> failwith "do_cases: `Not"
       )
   in
   let cases, handlers = do_cases ors in

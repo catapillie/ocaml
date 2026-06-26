@@ -1337,6 +1337,7 @@ and is_destructuring_pattern : type k . k general_pattern -> bool =
     | Tpat_exception _ -> false
     | Tpat_or (l,r,_) ->
         is_destructuring_pattern l || is_destructuring_pattern r
+    | Tpat_not _ -> false
 
 let is_valid_recursive_expression idlist expr : sd option =
   match expr.exp_desc with

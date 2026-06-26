@@ -365,6 +365,7 @@ let pattern : type k . _ -> k T.general_pattern -> _ = fun sub pat ->
     | Tpat_exception p -> Ppat_exception (sub.pat sub p)
     | Tpat_value p -> (sub.pat sub (p :> pattern)).ppat_desc
     | Tpat_or (p1, p2, _) -> Ppat_or (sub.pat sub p1, sub.pat sub p2)
+    | Tpat_not p -> Ppat_not (sub.pat sub p)
   in
   Pat.mk ~loc ~attrs desc
 

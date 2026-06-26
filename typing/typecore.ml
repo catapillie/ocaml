@@ -1123,6 +1123,7 @@ and build_as_type_aux (env : Env.t) p =
           newty (Tvariant (create_row ~fields ~fixed ~name
                              ~closed:false ~more:(newvar())))
       end
+  | Tpat_not p -> build_as_type env p
   | Tpat_any | Tpat_var _ | Tpat_constant _
   | Tpat_array _ | Tpat_lazy _ -> p.pat_type
 
@@ -2473,7 +2474,14 @@ and type_pat_aux
            pat_type = instance expected_ty;
            pat_attributes = sp.ppat_attributes;
            pat_env = !!penv }
-  | Ppat_not _ -> failwith "type_pat_aux: Ppat_not"
+  | Ppat_not p ->
+      let p = type_pat tps Value p expected_ty in
+      let pat_desc = Tpat_not p in
+      rvp { pat_desc = pat_desc;
+           pat_loc = loc; pat_extra = [];
+           pat_type = instance expected_ty;
+           pat_attributes = sp.ppat_attributes;
+           pat_env = !!penv }
   | Ppat_lazy sp1 ->
       let nv = solve_Ppat_lazy loc penv expected_ty in
       let p1 = type_pat tps Value sp1 nv in
@@ -2971,6 +2979,7 @@ let rec check_counter_example_pat
       | Ok p1, Ok p2 ->
           mkp k (Tpat_or (p1, p2, None))
       end
+  | Tpat_not _ -> failwith "check_counter_example_pat: Tpat_not"
   | Tpat_lazy tp1 ->
       let nv = solve_Ppat_lazy loc penv expected_ty in
       (* do not explode under lazy: PR#7421 *)

@@ -28,6 +28,9 @@ val omegas : int -> pattern list
 val omega_list : 'a list -> pattern list
 (** [List.map (fun _ -> omega)] *)
 
+val negate : pattern -> pattern
+(** aka [Tpat_not p] *)
+
 module Non_empty_row : sig
   type 'a t = 'a * Typedtree.pattern list
 
@@ -59,6 +62,7 @@ module Half_simple : sig
   type view = [
     | Simple.view
     | `Or of pattern * pattern * row_desc option
+    | `Not of pattern
   ]
   type pattern = view pattern_data
 end
