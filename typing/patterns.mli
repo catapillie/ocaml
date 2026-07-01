@@ -58,11 +58,18 @@ module Simple : sig
   val omega : [> view ] pattern_data
 end
 
-module Half_simple : sig
+module Specializable : sig
   type view = [
     | Simple.view
-    | `Or of pattern * pattern * row_desc option
     | `Not of pattern
+  ]
+  type pattern = view pattern_data
+end
+
+module Half_simple : sig
+  type view = [
+    | Specializable.view
+    | `Or of pattern * pattern * row_desc option
   ]
   type pattern = view pattern_data
 end

@@ -73,11 +73,18 @@ module Simple = struct
   let omega = { omega with pat_desc = `Any }
 end
 
-module Half_simple = struct
+module Specializable = struct
   type view = [
     | Simple.view
-    | `Or of pattern * pattern * row_desc option
     | `Not of pattern
+  ]
+  type pattern = view pattern_data
+end
+
+module Half_simple = struct
+  type view = [
+    | Specializable.view
+    | `Or of pattern * pattern * row_desc option
   ]
 
   type pattern = view pattern_data
