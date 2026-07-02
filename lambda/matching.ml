@@ -1769,11 +1769,14 @@ and precompile_or (cls : Simple.clause list) ors args def k =
      and [ors] has three rows
 
        (s21|s'21) p22 .. p2n -> act2
-       (s31|s'31) p32 .. p3n -> act3
-       s41        p42 .. p4n -> act4
+       (not s31)  p32 .. p3n -> act3
+       (s41|s'41) p42 .. p4n -> act4
+       s51        p52 .. p5n -> act5
 
-     where the first and second rows start with disjoint or-patterns
-     of simple patterns, binding the variables x2, y2, z2 and x3, y3
+     where the second row starts with the negation of a simple pattern s31
+     and
+     where the first and third rows start with disjoint or-patterns
+     of simple patterns, binding the variables x2, y2, z2 and x4, y4
      respectively, we precompile into the following:
 
      catch
@@ -1781,16 +1784,18 @@ and precompile_or (cls : Simple.clause list) ors args def k =
        | s11  p12 .. p1n -> act1
        | s21  _   .. _   -> exit 2 x2 y2 z2
        | s'21 _   .. _   -> exit 2 x2 y2 z2
-       | s31  _   .. _   -> exit 3 x3 y3
-       | s'31 _   .. _   -> exit 3 x3 y3
+       | s31  _   .. _   -> <failure>
+       | _    p32 .. p3n -> act3
+       | s41  _   .. _   -> exit 4 x4 y4
+       | s'41 _   .. _   -> exit 4 x4 y4
        | s41  p42 .. p4n -> act4 )
      with
      | exit 2 x2 y2 z2 ->
        ( match arg2 .. argn with
        | p22 .. p2n -> act2 )
-     | exit 3 x3 y3 ->
+     | exit 4 x4 y4 ->
        ( match arg2 .. argn with
-       | p32 .. p3n -> act3 )
+       | p42 .. p4n -> act4 )
 
      Note that if arg1 matches s21 or s'21, we exit to a submatrix
      that will never try any of the following rows; this relies on the
@@ -1809,6 +1814,14 @@ and precompile_or (cls : Simple.clause list) ors args def k =
             let new_ord, new_to_catch = do_cases rem in
             ( (({ p with pat_desc = view }, patl), action) :: new_ord,
               new_to_catch )
+        | `Not r ->
+          (* since [r] is inside a not-pattern we are allowed to
+             naively change its variables into wildcards.
+             Indeed, [not r] does not bind any variable. *)
+          let r = General.(view r |> strip_vars) in
+          let neg_ord, neg_handlers = do_fails ((r, patl), action) in
+          let rem_ord, rem_handlers = do_cases rem in
+          ( neg_ord @ rem_ord, neg_handlers @ rem_handlers )
         | `Or _ ->
             let orp = General.erase p in
             let others, rem = extract_equiv_head orp rem in
@@ -1849,8 +1862,20 @@ and precompile_or (cls : Simple.clause list) ors args def k =
             in
             let rem_cases, rem_handlers = do_cases rem in
             (new_cases @ rem_cases, handler :: rem_handlers)
-        | `Not _ -> failwith "do_cases: `Not"
       )
+  and do_fails (((p: Half_simple.pattern), patl), action) =
+    match p.pat_desc with
+    | `Not s ->
+      let s = General.(view s |> strip_vars) in
+      do_cases [ (s, patl), action ]
+    | `Or _ -> failwith "Matching.do_fails: nor or"
+    | #Simple.view as view ->
+      let anyl = Patterns.omega_list patl in
+      let fail = failwith "failure action" in
+      ( [
+          ({ p with pat_desc = view }, anyl), fail;
+          (  Patterns.Simple.omega,    patl), action;
+        ], [] )
   in
   let cases, handlers = do_cases ors in
   let matrix =
